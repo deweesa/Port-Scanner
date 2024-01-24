@@ -5,7 +5,8 @@ from typing_extensions import Annotated
 
 import socket
 import threading
-import time
+import concurrent.futures
+from itertools import repeat
 
 from pscan import __app_name__, __version__
 
@@ -20,7 +21,8 @@ def _version_callback(value: bool) -> None:
 def main(
         host: Annotated[str, typer.Argument(help="Host that you want to scan")],
         port: Annotated[int, typer.Option(help="Port that you want to scan")] = 0,
-        timeout: Annotated[int, typer.Option(help="Set tcp connection timeout in miliseconds")] = 0):
+        timeout: Annotated[int, typer.Option(help="Set tcp connection timeout in miliseconds")] = 0,
+        max_threads: Annotated[int, typer.Option(help="Specify the max number of threads for vanilla_scan")] = 4):
     if timeout != 0:
         timeout = .001 * timeout
         socket.setdefaulttimeout(timeout)
@@ -30,7 +32,7 @@ def main(
         test_connection(host, port)
     else:
         typer.echo("Starting vanilla scan")
-        vanilla_scan(host)
+        vanilla_scan(host, max_threads)
 
     return
 
@@ -42,7 +44,6 @@ def test_connection(host: str, port: int):
     except:
         pass
 
-def vanilla_scan(host: str):
-    for port in range(1, 2**16):
-        test_connection(host, port)
-        
+def vanilla_scan(host: str, max_threads: int):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+        executor.map(test_connection, repeat(host), range(1, 2**16))
